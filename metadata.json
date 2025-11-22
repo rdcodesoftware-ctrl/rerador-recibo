@@ -1,0 +1,5 @@
+{
+  "name": "Gerador de Recibos Inteligente",
+  "description": "Gere recibos de pagamento profissionais com assinatura digital e mensagens de confirmação via IA.",
+  "requestFramePermissions": []
+}
