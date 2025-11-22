@@ -25,40 +25,57 @@ const App: React.FC = () => {
       const element = document.getElementById('receipt-preview');
       if (!element) return;
 
-      // 1. Cria um clone do elemento para manipular as dimensões sem afetar a UI visível
-      // Isso resolve o problema de responsividade no celular, forçando o layout "desktop"
+      // 1. Cria um clone do elemento para manipular as dimensões
       const clone = element.cloneNode(true) as HTMLElement;
 
-      // Força estilos específicos no clone para garantir a formatação A4/Desktop
-      clone.style.width = '800px'; // Largura fixa ideal para o recibo
+      // CONFIGURAÇÃO CRÍTICA PARA IMAGENS:
+      // Não use top: -9999px. Navegadores mobile não renderizam imagens fora da viewport.
+      // Use z-index negativo e fixed na posição 0,0.
+      clone.style.width = '800px';
       clone.style.maxWidth = 'none';
-      clone.style.position = 'fixed'; // Tira do fluxo normal
-      clone.style.top = '-9999px'; // Esconde da tela
-      clone.style.left = '-9999px';
+      clone.style.minHeight = '450px'; // Garante altura
+      clone.style.position = 'fixed';
+      clone.style.left = '0';
+      clone.style.top = '0';
+      clone.style.zIndex = '-9999'; // Esconde atrás de tudo, mas mantém na viewport lógica
       clone.style.margin = '0';
       clone.style.transform = 'none';
+      clone.style.backgroundColor = '#ffffff'; // Garante fundo branco
       
-      // É necessário adicionar o clone ao DOM para o html2canvas conseguir renderizá-lo
+      // Adiciona ao DOM
       document.body.appendChild(clone);
 
-      // Aguarda um momento para garantir que as imagens (logo/assinatura) sejam renderizadas no clone
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // 2. AGUARDA O CARREGAMENTO REAL DAS IMAGENS
+      // Apenas esperar o tempo não garante que o browser decodificou o SVG/PNG no clone
+      const images = Array.from(clone.getElementsByTagName('img'));
+      await Promise.all(images.map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise((resolve) => {
+          img.onload = resolve;
+          img.onerror = resolve; // Prossegue mesmo se falhar
+        });
+      }));
 
-      // 2. Captura o CLONE como imagem
+      // Delay de segurança adicional para renderização de fontes e layout
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // 3. Captura com html2canvas
       const canvas = await html2canvas(clone, {
-        scale: 2, // Melhora a resolução
-        useCORS: true, // Permite carregar imagens externas
+        scale: 2, // Alta resolução
+        useCORS: true, // Permite imagens externas
+        allowTaint: true, // Permite sujar o canvas (importante para algumas imagens dataURI)
         logging: false,
-        backgroundColor: '#ffffff', // Garante a cor de fundo branca
-        windowWidth: 1200 // Simula uma tela de desktop para o renderizador
+        backgroundColor: '#ffffff',
+        width: 800, // Força largura interna
+        windowWidth: 800 // Simula janela desktop
       });
 
-      // Remove o clone do DOM
+      // Remove o clone
       document.body.removeChild(clone);
 
       const imgData = canvas.toDataURL('image/png');
       
-      // 3. Gera o PDF
+      // 4. Gera o PDF
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -70,9 +87,9 @@ const App: React.FC = () => {
       
       pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
       
-      const fileName = `Recibo_${receiptData.payerName.replace(/\s+/g, '_')}.pdf`;
+      const fileName = `Recibo_${receiptData.payerName.replace(/\s+/g, '_') || 'Pagamento'}.pdf`;
 
-      // 4. Tenta compartilhar usando a API Nativa (Mobile)
+      // 5. Compartilha ou Baixa
       const blob = pdf.output('blob');
       const file = new File([blob], fileName, { type: 'application/pdf' });
       const defaultMessage = `Olá ${receiptData.payerName}, segue o recibo referente a ${receiptData.referenceMonth}.`;
@@ -84,7 +101,7 @@ const App: React.FC = () => {
           text: defaultMessage
         });
       } else {
-        // 5. Fallback para Desktop
+        // Fallback Desktop
         pdf.save(fileName);
         
         const message = encodeURIComponent(`Olá ${receiptData.payerName}, segue o recibo em anexo.`);
@@ -98,14 +115,14 @@ const App: React.FC = () => {
 
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
-      alert("Ocorreu um erro ao gerar o PDF para compartilhamento.");
+      alert("Ocorreu um erro ao gerar o PDF. Tente novamente.");
     } finally {
       setIsGeneratingPDF(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row">
+    <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
       
       {/* Left Side: Editor Form */}
       <div className="w-full md:w-1/3 lg:w-[400px] bg-white border-r border-slate-200 p-6 overflow-y-auto h-screen no-print z-10 shadow-lg">

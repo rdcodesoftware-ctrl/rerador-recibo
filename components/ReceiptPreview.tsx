@@ -21,7 +21,7 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ data }) => {
     <div 
       id="receipt-preview" 
       className="bg-white text-slate-900 p-8 shadow-xl mx-auto max-w-[800px] relative font-serif border border-slate-200 print:border-2 print:border-slate-800 print:shadow-none"
-      style={{ minHeight: '450px' }}
+      style={{ minHeight: '450px', backgroundColor: '#ffffff' }}
     >
       {/* Header */}
       <div className="border-b-2 border-slate-800 pb-6 mb-8">
@@ -32,6 +32,7 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ data }) => {
               src={data.logo} 
               alt="Logo" 
               className="h-auto max-h-40 w-auto max-w-full object-contain" 
+              crossOrigin="anonymous"
             />
           </div>
         )}
@@ -89,6 +90,7 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ data }) => {
                   src={data.signatureImage} 
                   alt="Assinatura" 
                   className="max-h-full object-contain absolute bottom-0 mix-blend-multiply" 
+                  crossOrigin="anonymous"
                 />
              ) : (
                <div className="w-full h-full border border-dashed border-slate-300 flex items-center justify-center text-xs text-slate-400 print:hidden">
