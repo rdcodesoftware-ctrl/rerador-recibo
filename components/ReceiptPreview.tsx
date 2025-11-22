@@ -56,11 +56,11 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ data }) => {
       {/* Body */}
       <div className="space-y-8 text-lg leading-relaxed">
         <p>
-          Recebi(emos) de <span className="font-bold border-b border-slate-400 px-1 inline-block min-w-[200px]">{data.payerName}</span>
+          Recebemos de <span className="font-bold border-b border-slate-400 px-1 inline-block min-w-[200px]">{data.payerName}</span>
         </p>
         
         <p>
-          A importância de <span className="font-bold text-emerald-700 px-1">{data.amount}</span>
+          A doação de <span className="font-bold text-emerald-700 px-1">{data.amount}</span>
         </p>
 
         <p>
@@ -81,7 +81,7 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ data }) => {
         {/* Date */}
         <div className="text-center md:text-left">
           <p className="mb-2">{data.issueDate ? `Data: ${formatDate(data.issueDate)}` : 'Data: ___/___/____'}</p>
-          <div className="text-sm text-slate-500">Local e Data</div>
+          <div className="text-sm text-slate-500">Bragança/PA</div>
         </div>
 
         {/* Signature */}

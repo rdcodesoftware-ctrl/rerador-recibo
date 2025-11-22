@@ -1,15 +1,15 @@
 
 import React, { useState } from 'react';
-import { ReceiptData, AIGeneratedContent } from './types';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+import { ReceiptData } from './types';
 import { INITIAL_RECEIPT_DATA } from './constants';
 import { ReceiptPreview } from './components/ReceiptPreview';
 import { CurrencyInput } from './components/CurrencyInput';
-import { generateConfirmationMessage } from './services/geminiService';
 
 const App: React.FC = () => {
   const [receiptData, setReceiptData] = useState<ReceiptData>(INITIAL_RECEIPT_DATA);
-  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-  const [aiMessage, setAiMessage] = useState<AIGeneratedContent | null>(null);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   const handleChange = (field: keyof ReceiptData, value: string | null) => {
     setReceiptData(prev => ({ ...prev, [field]: value }));
@@ -19,20 +19,67 @@ const App: React.FC = () => {
     window.print();
   };
 
-  const handleGenerateAIMessage = async () => {
-    if (!receiptData.payerName || !receiptData.amount) {
-      alert("Preencha pelo menos o nome do pagador e o valor para gerar a mensagem.");
-      return;
-    }
-    setIsGeneratingAI(true);
+  const handleShareWhatsApp = async () => {
+    setIsGeneratingPDF(true);
     try {
-      const content = await generateConfirmationMessage(receiptData);
-      setAiMessage(content);
+      const element = document.getElementById('receipt-preview');
+      if (!element) return;
+
+      // 1. Captura o elemento HTML como imagem
+      const canvas = await html2canvas(element, {
+        scale: 2, // Melhora a resolução
+        useCORS: true, // Permite carregar imagens externas se houver headers corretos
+        logging: false,
+        backgroundColor: '#fffcf5' // Garante a cor de fundo do papel
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      
+      // 2. Gera o PDF
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const imgWidth = 210; // A4 width em mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+      
+      const fileName = `Recibo_${receiptData.payerName.replace(/\s+/g, '_')}.pdf`;
+
+      // 3. Tenta compartilhar usando a API Nativa (Mobile)
+      // Isso permite enviar o arquivo direto para o WhatsApp no Android/iOS
+      const blob = pdf.output('blob');
+      const file = new File([blob], fileName, { type: 'application/pdf' });
+      const defaultMessage = `Olá ${receiptData.payerName}, segue o recibo referente a ${receiptData.referenceMonth}.`;
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'Recibo de Pagamento',
+          text: defaultMessage
+        });
+      } else {
+        // 4. Fallback para Desktop (Baixa o PDF e abre o WhatsApp Web)
+        pdf.save(fileName);
+        
+        const message = encodeURIComponent(`Olá ${receiptData.payerName}, segue o recibo em anexo.`);
+        const whatsappUrl = `https://wa.me/?text=${message}`;
+        
+        // Pequeno delay para garantir que o download iniciou
+        setTimeout(() => {
+           window.open(whatsappUrl, '_blank');
+           alert("O PDF foi baixado no seu computador.\n\nO WhatsApp Web foi aberto. Basta arrastar o arquivo baixado para a conversa.");
+        }, 1000);
+      }
+
     } catch (error) {
-      console.error(error);
-      alert("Erro ao gerar mensagem com IA.");
+      console.error("Erro ao gerar PDF:", error);
+      alert("Ocorreu um erro ao gerar o PDF para compartilhamento.");
     } finally {
-      setIsGeneratingAI(false);
+      setIsGeneratingPDF(false);
     }
   };
 
@@ -141,25 +188,22 @@ const App: React.FC = () => {
         </form>
 
         <div className="mt-8 space-y-3">
-             <button 
-              onClick={handleGenerateAIMessage}
-              disabled={isGeneratingAI}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+            <button 
+              onClick={handleShareWhatsApp}
+              disabled={isGeneratingPDF}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#25D366] hover:bg-[#128C7E] text-white rounded-lg font-medium transition-colors disabled:opacity-50"
             >
-              {isGeneratingAI ? (
-                 <>
-                   <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+               {isGeneratingPDF ? (
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                    </svg>
-                   Gerando Mensagem...
-                 </>
-              ) : (
-                <>
-                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                   Criar Msg de Envio (IA)
-                </>
-              )}
+               ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.017-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+                  </svg>
+               )}
+               Enviar PDF (WhatsApp)
             </button>
 
             <button 
@@ -171,7 +215,7 @@ const App: React.FC = () => {
                 <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
                 <rect x="6" y="14" width="12" height="8"></rect>
               </svg>
-              Imprimir / Salvar PDF
+              Imprimir
             </button>
         </div>
       </div>
@@ -184,28 +228,6 @@ const App: React.FC = () => {
           <div className="scale-[0.8] md:scale-100 origin-top-center transition-transform duration-300">
              <ReceiptPreview data={receiptData} />
           </div>
-
-          {/* AI Message Card */}
-          {aiMessage && (
-            <div className="bg-white border border-indigo-100 rounded-xl p-6 shadow-md no-print max-w-[800px] mx-auto">
-              <h3 className="text-indigo-800 font-bold mb-3 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                Sugestão de Mensagem (Gemini)
-              </h3>
-              <div className="space-y-3">
-                <div>
-                   <label className="text-xs font-bold text-slate-400 uppercase">Assunto</label>
-                   <p className="text-slate-800 font-medium select-all">{aiMessage.subject}</p>
-                </div>
-                <div>
-                   <label className="text-xs font-bold text-slate-400 uppercase">Mensagem</label>
-                   <div className="bg-slate-50 p-3 rounded border border-slate-100 text-slate-700 whitespace-pre-wrap select-all">
-                     {aiMessage.message}
-                   </div>
-                </div>
-              </div>
-            </div>
-          )}
 
         </div>
       </div>
