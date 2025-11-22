@@ -28,46 +28,76 @@ const App: React.FC = () => {
       // 1. Cria um clone do elemento para manipular as dimensões
       const clone = element.cloneNode(true) as HTMLElement;
 
-      // CONFIGURAÇÃO CRÍTICA PARA IMAGENS:
-      // Não use top: -9999px. Navegadores mobile não renderizam imagens fora da viewport.
-      // Use z-index negativo e fixed na posição 0,0.
+      // CONFIGURAÇÃO CRÍTICA PARA MOBILE:
+      // Posiciona fixo no topo (atrás do conteúdo principal) para forçar renderização
       clone.style.width = '800px';
-      clone.style.maxWidth = 'none';
-      clone.style.minHeight = '450px'; // Garante altura
+      clone.style.minHeight = '450px';
       clone.style.position = 'fixed';
       clone.style.left = '0';
       clone.style.top = '0';
-      clone.style.zIndex = '-9999'; // Esconde atrás de tudo, mas mantém na viewport lógica
+      clone.style.zIndex = '-50'; // Atrás do conteúdo, mas na viewport
       clone.style.margin = '0';
       clone.style.transform = 'none';
-      clone.style.backgroundColor = '#ffffff'; // Garante fundo branco
+      clone.style.backgroundColor = '#ffffff';
       
-      // Adiciona ao DOM
+      // Adiciona ao DOM para o navegador calcular layout
       document.body.appendChild(clone);
 
       // 2. AGUARDA O CARREGAMENTO REAL DAS IMAGENS
-      // Apenas esperar o tempo não garante que o browser decodificou o SVG/PNG no clone
       const images = Array.from(clone.getElementsByTagName('img'));
       await Promise.all(images.map(img => {
-        if (img.complete) return Promise.resolve();
+        if (img.complete && img.naturalHeight !== 0) return Promise.resolve();
         return new Promise((resolve) => {
-          img.onload = resolve;
-          img.onerror = resolve; // Prossegue mesmo se falhar
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(true); // Prossegue mesmo com erro para não travar
         });
       }));
 
-      // Delay de segurança adicional para renderização de fontes e layout
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Delay extra para renderização de fontes
+      await new Promise(resolve => setTimeout(resolve, 300));
 
-      // 3. Captura com html2canvas
+      // 3. CONVERSÃO IMAGEM -> CANVAS ("BAKING")
+      // Isso resolve o problema de imagens sumindo no mobile ao converter o DOM para imagem
+      images.forEach(img => {
+        try {
+          const rect = img.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            const canvas = document.createElement('canvas');
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            const ctx = canvas.getContext('2d');
+            
+            if (ctx) {
+              // Desenha a imagem exatamente como renderizada
+              ctx.drawImage(img, 0, 0, rect.width, rect.height);
+              
+              // Copia estilos relevantes para manter layout
+              canvas.className = img.className;
+              canvas.style.cssText = img.style.cssText;
+              // Remove object-fit pois o conteúdo já está dimensionado no canvas
+              canvas.style.objectFit = 'fill'; 
+              
+              img.parentNode?.replaceChild(canvas, img);
+            }
+          }
+        } catch (e) {
+          console.warn("Erro ao converter imagem para canvas:", e);
+        }
+      });
+
+      // 4. Captura com html2canvas
       const canvas = await html2canvas(clone, {
         scale: 2, // Alta resolução
-        useCORS: true, // Permite imagens externas
-        allowTaint: true, // Permite sujar o canvas (importante para algumas imagens dataURI)
+        useCORS: true,
+        allowTaint: true,
         logging: false,
         backgroundColor: '#ffffff',
-        width: 800, // Força largura interna
-        windowWidth: 800 // Simula janela desktop
+        width: 800,
+        windowWidth: 800,
+        scrollX: 0,
+        scrollY: 0,
+        x: 0,
+        y: 0
       });
 
       // Remove o clone
@@ -75,7 +105,7 @@ const App: React.FC = () => {
 
       const imgData = canvas.toDataURL('image/png');
       
-      // 4. Gera o PDF
+      // 5. Gera o PDF
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -89,7 +119,7 @@ const App: React.FC = () => {
       
       const fileName = `Recibo_${receiptData.payerName.replace(/\s+/g, '_') || 'Pagamento'}.pdf`;
 
-      // 5. Compartilha ou Baixa
+      // 6. Compartilha ou Baixa
       const blob = pdf.output('blob');
       const file = new File([blob], fileName, { type: 'application/pdf' });
       const defaultMessage = `Olá ${receiptData.payerName}, segue o recibo referente a ${receiptData.referenceMonth}.`;

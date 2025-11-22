@@ -33,6 +33,7 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ data }) => {
               alt="Logo" 
               className="h-auto max-h-40 w-auto max-w-full object-contain" 
               crossOrigin="anonymous"
+              loading="eager"
             />
           </div>
         )}
@@ -89,8 +90,9 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ data }) => {
                 <img 
                   src={data.signatureImage} 
                   alt="Assinatura" 
-                  className="max-h-full object-contain absolute bottom-0 mix-blend-multiply" 
+                  className="max-h-full object-contain absolute bottom-0" 
                   crossOrigin="anonymous"
+                  loading="eager"
                 />
              ) : (
                <div className="w-full h-full border border-dashed border-slate-300 flex items-center justify-center text-xs text-slate-400 print:hidden">
