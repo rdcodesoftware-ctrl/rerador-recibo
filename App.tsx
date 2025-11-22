@@ -41,12 +41,15 @@ const App: React.FC = () => {
       // É necessário adicionar o clone ao DOM para o html2canvas conseguir renderizá-lo
       document.body.appendChild(clone);
 
+      // Aguarda um momento para garantir que as imagens (logo/assinatura) sejam renderizadas no clone
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       // 2. Captura o CLONE como imagem
       const canvas = await html2canvas(clone, {
         scale: 2, // Melhora a resolução
         useCORS: true, // Permite carregar imagens externas
         logging: false,
-        backgroundColor: '#fffcf5', // Garante a cor de fundo do papel
+        backgroundColor: '#ffffff', // Garante a cor de fundo branca
         windowWidth: 1200 // Simula uma tela de desktop para o renderizador
       });
 

@@ -20,12 +20,9 @@ export const ReceiptPreview: React.FC<ReceiptPreviewProps> = ({ data }) => {
   return (
     <div 
       id="receipt-preview" 
-      className="bg-[#fffcf5] text-slate-900 p-8 shadow-xl mx-auto max-w-[800px] relative font-serif border border-slate-200 print:border-2 print:border-slate-800 print:shadow-none"
+      className="bg-white text-slate-900 p-8 shadow-xl mx-auto max-w-[800px] relative font-serif border border-slate-200 print:border-2 print:border-slate-800 print:shadow-none"
       style={{ minHeight: '450px' }}
     >
-      {/* Texture overlay for screen only */}
-      <div className="absolute inset-0 pointer-events-none opacity-5 bg-[url('https://www.transparenttextures.com/patterns/paper.png')] print:hidden"></div>
-
       {/* Header */}
       <div className="border-b-2 border-slate-800 pb-6 mb-8">
         {/* Logo Centered */}
