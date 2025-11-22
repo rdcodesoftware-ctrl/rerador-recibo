@@ -1,10 +1,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ReceiptData, AIGeneratedContent } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 export const generateConfirmationMessage = async (data: ReceiptData): Promise<AIGeneratedContent> => {
   try {
+    // Inicializa o cliente apenas quando a função é chamada.
+    // Isso previne que a aplicação quebre no carregamento inicial se as variáveis de ambiente
+    // não estiverem perfeitamente configuradas no ambiente do navegador (Vercel/Client-side).
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
     const prompt = `
       Crie uma mensagem curta, educada e profissional para ser enviada por WhatsApp ou E-mail junto com o comprovante de recibo.
       
