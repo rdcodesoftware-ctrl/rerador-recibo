@@ -25,17 +25,37 @@ const App: React.FC = () => {
       const element = document.getElementById('receipt-preview');
       if (!element) return;
 
-      // 1. Captura o elemento HTML como imagem
-      const canvas = await html2canvas(element, {
+      // 1. Cria um clone do elemento para manipular as dimensões sem afetar a UI visível
+      // Isso resolve o problema de responsividade no celular, forçando o layout "desktop"
+      const clone = element.cloneNode(true) as HTMLElement;
+
+      // Força estilos específicos no clone para garantir a formatação A4/Desktop
+      clone.style.width = '800px'; // Largura fixa ideal para o recibo
+      clone.style.maxWidth = 'none';
+      clone.style.position = 'fixed'; // Tira do fluxo normal
+      clone.style.top = '-9999px'; // Esconde da tela
+      clone.style.left = '-9999px';
+      clone.style.margin = '0';
+      clone.style.transform = 'none';
+      
+      // É necessário adicionar o clone ao DOM para o html2canvas conseguir renderizá-lo
+      document.body.appendChild(clone);
+
+      // 2. Captura o CLONE como imagem
+      const canvas = await html2canvas(clone, {
         scale: 2, // Melhora a resolução
-        useCORS: true, // Permite carregar imagens externas se houver headers corretos
+        useCORS: true, // Permite carregar imagens externas
         logging: false,
-        backgroundColor: '#fffcf5' // Garante a cor de fundo do papel
+        backgroundColor: '#fffcf5', // Garante a cor de fundo do papel
+        windowWidth: 1200 // Simula uma tela de desktop para o renderizador
       });
+
+      // Remove o clone do DOM
+      document.body.removeChild(clone);
 
       const imgData = canvas.toDataURL('image/png');
       
-      // 2. Gera o PDF
+      // 3. Gera o PDF
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -49,8 +69,7 @@ const App: React.FC = () => {
       
       const fileName = `Recibo_${receiptData.payerName.replace(/\s+/g, '_')}.pdf`;
 
-      // 3. Tenta compartilhar usando a API Nativa (Mobile)
-      // Isso permite enviar o arquivo direto para o WhatsApp no Android/iOS
+      // 4. Tenta compartilhar usando a API Nativa (Mobile)
       const blob = pdf.output('blob');
       const file = new File([blob], fileName, { type: 'application/pdf' });
       const defaultMessage = `Olá ${receiptData.payerName}, segue o recibo referente a ${receiptData.referenceMonth}.`;
@@ -62,13 +81,12 @@ const App: React.FC = () => {
           text: defaultMessage
         });
       } else {
-        // 4. Fallback para Desktop (Baixa o PDF e abre o WhatsApp Web)
+        // 5. Fallback para Desktop
         pdf.save(fileName);
         
         const message = encodeURIComponent(`Olá ${receiptData.payerName}, segue o recibo em anexo.`);
         const whatsappUrl = `https://wa.me/?text=${message}`;
         
-        // Pequeno delay para garantir que o download iniciou
         setTimeout(() => {
            window.open(whatsappUrl, '_blank');
            alert("O PDF foi baixado no seu computador.\n\nO WhatsApp Web foi aberto. Basta arrastar o arquivo baixado para a conversa.");
